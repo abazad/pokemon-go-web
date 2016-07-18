@@ -21,9 +21,10 @@ Show nearby pokemon with a google maps.
 ## Creating a config file
 Create a config.php in the root with the following:
 
-define('USERNAME', '');
-define('PASSWORD', '');
-define('GOOGLE_MAPS_API_KEY', '');
+ * define('USERNAME', '');
+ * define('PASSWORD', '');
+ * define('GOOGLE_MAPS_API_KEY', '');
+ * define('RANGE_KM', 10);
 
 ## Todo:
 
