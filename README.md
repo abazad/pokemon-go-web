@@ -4,7 +4,7 @@ Search based on input field or current location from browser.
 Own maps where you can click to move your location and get the new address.
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/DjustinK/pokemon-go-web/master/cover.png">
+<img src="https://raw.githubusercontent.com/DjustinK/pokemon-go-web/master/screenshot.png">
 </p>
 
 # WARNING!!! ALERT!!!
