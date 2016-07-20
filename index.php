@@ -14,13 +14,24 @@ if (isset($_POST['get']) || isset($_GET['get'])) {
 
     $latLngResults = getData('https://maps.googleapis.com/maps/api/geocode/json?address=' . $addressEncode);
     $latLngResults = json_decode($latLngResults, true);
-    if (isset($latLngResults['status']) && $latLngResults['status'] == 'OK' && isset($latLngResults['results'][0]['geometry']['location'])) {
-        $lat = $latLngResults['results'][0]['geometry']['location']['lat'];
-        $lng = $latLngResults['results'][0]['geometry']['location']['lng'];
-        $ok = getData($protocol . $domain . ':9999/next_loc?lat=' . $lat . '&lon=' . $lng);
+    if (isset($latLngResults['status']) && $latLngResults['status'] == 'OK' && (isset($latLngResults['results'][0]['geometry']['location']) || isset($latLngResults['results']['geometry']['location']))) {
 
-        if ($ok == 'ok') {
-            sleep(10);
+        $lat = '';
+        $lng = '';
+        if(isset($latLngResults['results']['geometry']['location'])){
+            $lat = $latLngResults['results']['geometry']['location']['lat'];
+            $lng = $latLngResults['results']['geometry']['location']['lng'];
+        }elseif($latLngResults['results'][0]['geometry']['location']){
+            $lat = $latLngResults['results'][0]['geometry']['location']['lat'];
+            $lng = $latLngResults['results'][0]['geometry']['location']['lng'];
+        }
+
+        if(!empty($lat) && !empty($lng)){
+            $ok = getData($protocol . $domain . ':9999/next_loc?lat=' . $lat . '&lon=' . $lng);
+
+            if ($ok == 'ok') {
+                sleep(10);
+            }
         }
     }
 
