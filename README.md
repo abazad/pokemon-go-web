@@ -19,7 +19,8 @@ Own maps where you can click to move your location and get the new address.
  * https://github.com/AHAAAAAAA/PokemonGo-Map/wiki/Installation-and-requirements
  * https://github.com/AHAAAAAAA/PokemonGo-Map/wiki/Usage (Run it on port 9999)
  * Run the python script from the python map.
- * Then load the website from your browser.
+ * Get a webservice (php and, apache OR nginx).
+ * Then load the website from your browser (http://127.0.0.1 or http://localhost or a configured vhost like http://pokemongomap.dev)
 
 ## Creating a config file
 Create a config.php in the root with the following:
@@ -33,4 +34,3 @@ Create a config.php in the root with the following:
 
 ## Credits
 Thanks a lot to [AHAAAAAAA](https://github.com/AHAAAAAAA/PokemonGo-Map) for python code!
-
