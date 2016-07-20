@@ -3,6 +3,10 @@ Show nearby pokemon with a google maps.
 Search based on input field or current location from browser.
 Own maps where you can click to move your location and get the new address.
 
+<p align="center">
+<img src="https://raw.githubusercontent.com/DjustinK/pokemon-go-web/master/cover.png">
+</p>
+
 # WARNING!!! ALERT!!!
 
  * USE AT YOUR OWN RISK ! DO NOT USE ON YOUR LIVE SERVER!!!
@@ -12,8 +16,8 @@ Own maps where you can click to move your location and get the new address.
 
 ## Install and Usage
 
+ * https://github.com/AHAAAAAAA/PokemonGo-Map/wiki/Installation-and-requirements
  * https://github.com/AHAAAAAAA/PokemonGo-Map/wiki/Usage (Run it on port 9999)
- * https://github.com/AHAAAAAAA/PokemonGo-Map/wiki/Usage
  * Run the python script from the python map.
  * Then load the website from your browser.
 
