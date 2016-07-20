@@ -2,7 +2,7 @@
 
 include_once 'config.php';
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == "on" ? "https://" : "http://";
-$domain = (isset($_SERVER) && is_array($_SERVER) && isset($_SERVER['SERVER_NAME']))? $_SERVER['SERVER_NAME']: '';
+$domain = (isset($_SERVER) && is_array($_SERVER) && isset($_SERVER['SERVER_NAME'])) ? $_SERVER['SERVER_NAME'] : '';
 
 $address = isset($_POST['address']) ? $_POST['address'] : '';
 $address = isset($_GET['address']) ? urldecode($_GET['address']) : $address;
@@ -12,14 +12,14 @@ set_time_limit(0);
 
 if (isset($_POST['get']) || isset($_GET['get'])) {
 
-    $latLngResults = getData('https://maps.googleapis.com/maps/api/geocode/json?address='.$addressEncode);
+    $latLngResults = getData('https://maps.googleapis.com/maps/api/geocode/json?address=' . $addressEncode);
     $latLngResults = json_decode($latLngResults, true);
-    if(isset($latLngResults['status']) && $latLngResults['status'] == 'OK' && isset($latLngResults['results'][0]['geometry']['location'])) {
+    if (isset($latLngResults['status']) && $latLngResults['status'] == 'OK' && isset($latLngResults['results'][0]['geometry']['location'])) {
         $lat = $latLngResults['results'][0]['geometry']['location']['lat'];
         $lng = $latLngResults['results'][0]['geometry']['location']['lng'];
-        $ok = getData($protocol.$domain.':9999/next_loc?lat='.$lat.'&lon='.$lng);
+        $ok = getData($protocol . $domain . ':9999/next_loc?lat=' . $lat . '&lon=' . $lng);
 
-        if($ok == 'ok'){
+        if ($ok == 'ok') {
             sleep(10);
         }
     }
@@ -28,7 +28,8 @@ if (isset($_POST['get']) || isset($_GET['get'])) {
     exit;
 }
 
-function getData($url) {
+function getData($url)
+{
     $ch = curl_init();
     $timeout = 5;
     curl_setopt($ch, CURLOPT_URL, $url);
@@ -39,7 +40,8 @@ function getData($url) {
     return $data;
 }
 
-function debug($data){
+function debug($data)
+{
     echo '<pre>';
     print_r($data);
     echo '</pre>';
@@ -52,11 +54,9 @@ function debug($data){
 <head>
     <script src="http://maps.googleapis.com/maps/api/js?key=<?php echo GOOGLE_MAPS_API_KEY; ?>"></script>
     <script>
-
         var oldMarker;
         var map;
         var infowindow;
-        var pokemons = <?php echo !empty($data) ? json_encode($data) : "''";?>;
         var myLocation = <?php echo !empty($address) ? "'" . $address . "'" : "''";?>;
         function initialize() {
             if (myLocation) {
@@ -86,6 +86,9 @@ function debug($data){
         function currentLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(function (position) {
+                    var pos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+                    map.setCenter(pos);
+                    placeMarker(pos, 'You are here!');
                     getAddressLatLng(position.coords.latitude, position.coords.longitude);
                 });
             }
@@ -134,9 +137,9 @@ function debug($data){
                         var result = xmlhttp.responseText;
                         var parsed = JSON.parse(result);
 
-                        if(parsed.results[0].formatted_address){
+                        if (parsed.results[0].formatted_address) {
                             document.getElementById("address").value = parsed.results[0].formatted_address;
-                        }else if(parsed.results.formatted_address){
+                        } else if (parsed.results.formatted_address) {
                             document.getElementById("address").value = parsed.results.formatted_address;
                         }
                     }
@@ -159,24 +162,24 @@ function debug($data){
 
 <body>
 
-<form action="<?php echo $protocol.$domain;?>" method="POST" style="margin-bottom: 20px">
+<form action="<?php echo $protocol . $domain; ?>" method="POST" style="margin-bottom: 20px">
     <textarea id="address" name="address" rows="2"
               cols="50"><?php echo !empty($address) ? $address : ''; ?></textarea></br></br>
-    <input type="submit" name="get" value="Get pokemon"> | <input type="button" value="Get Current Location" onclick="currentLocation(); return false;">
+    <input type="submit" name="get" value="Get pokemon"> | <input type="button" value="Get Current Location"
+                                                                  onclick="currentLocation(); return false;">
 </form>
 
 <div id="googleMap" style="width:500px;height:380px;margin-bottom: 20px;"></div>
 
-<?php if(!empty($address)){?>
-    <iframe src="<?php echo $protocol.$domain.':9999';?>" style="border: none; width: 100%; height: 600px;">
+<?php if (!empty($address)) { ?>
+    <iframe src="<?php echo $protocol . $domain . ':9999'; ?>" style="border: none; width: 100%; height: 600px;">
         Your browser doesn't support iframes
     </iframe>
-<?php }else{ ?>
+<?php } else { ?>
 
 <?php } ?>
 
 </br>
-
 
 
 </body>
