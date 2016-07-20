@@ -1,37 +1,63 @@
-# Pokemon Go API Demo
+<p align="center">
+<img src="https://cloud.githubusercontent.com/assets/7145349/16916971/6bd3343a-4cb4-11e6-86cc-e3bc9399a9b0.png">
+</p>
 
- * USE AT YOUR OWN RISK !
- * includes protobuf file
- * maybe you should change some of the proto values like gps cords...
- * ugly code
+# PokemonGo Map
 
-## Demo
+[![Build Status](https://travis-ci.org/AHAAAAAAA/PokemonGo-Map.svg?branch=master)](https://travis-ci.org/AHAAAAAAA/PokemonGo-Map)  [![Coverage Status](https://coveralls.io/repos/github/AHAAAAAAA/PokemonGo-Map/badge.svg?branch=master)](https://coveralls.io/github/AHAAAAAAA/PokemonGo-Map?branch=master)
 
-    $ python main.py -u *** -p *** --location "Union Square, San Francisco"
-    [!] Your given location: Union Square, San Francisco, CA 94108, USA
-    [!] lat/long/alt: 37.7879938 -122.4074374 0.0
-    [!] login for: ***
-    [+] RPC Session Token: TGT-***-****** ...
-    [+] Received API endpoint: https://pgorelease.nianticlabs.com/plfe/208/rpc
-    [+] Login successful
-    [+] Username: Mehbasaur
-    [+] You are playing Pokemon Go since: 2016-07-14 22:48:54
-    [+] POKECOIN: 0
-    [+] STARDUST: 100
+Live visualization of all the pokemon (with option to show gyms and pokestops) in your area. This is a proof of concept that we can load all the pokemon visible nearby given a location. Currently runs on a Flask server displaying a Google Maps with markers on it.
 
-    Within one step of LatLng: 37.7861784887,-122.408499387 (222m SW from you):
-        (92) Gastly
-    Within one step of LatLng: 37.7885606156,-122.408499387 (112m NW from you):
-        (21) Spearow
-        (41) Zubat
-        (32) Nidoran ♂
+Building off [Mila432](https://github.com/Mila432/Pokemon_Go_API)'s PokemonGo API, [tejado's additions](https://github.com/tejado/pokemongo-api-demo), [leegao's additions](https://github.com/leegao/pokemongo-api-demo/tree/simulation) and [Flask-GoogleMaps](https://github.com/rochacbruno/Flask-GoogleMaps).
 
-    (21) Spearow is visible at (37.7886329623, -122.407658647) for 169 seconds (73m NW from you)
-    (41) Zubat is visible at (37.7887988683, -122.409782609) for 70 seconds (224m NW from you)
-    (32) Nidoran ♂ is visible at (37.7885226453, -122.408986128) for 805 seconds (148m NW from you)
-    (41) Zubat is visible at (37.7890195112, -122.40712765) for 84 seconds (117m NE from you)
-    (23) Ekans is visible at (37.7900544956, -122.407393149) for 227 seconds (229m N from you)
-    (92) Gastly is visible at (37.7869393568, -122.408809132) for 356 seconds (168m SW from you)
+---
 
-## Credits
-Thanks a lot to [Mila432](https://github.com/Mila432/Pokemon_Go_API) !
+# Requirements
+* Python 2.7.x
+
+# Installation
+`pip install -r requirements.txt`
+
+# Usage
+`python example.py -a authService -u myUsername -p myPassword -l "Boulder, CO" -st 5`
+
+| Flag                            | Description                                               | Required | 
+|---------------------------------|-----------------------------------------------------------|----------| 
+| `-a`                            | Auth Service (ptc or google)                              |          | 
+| `-u`                            | Username                                                  | ✓        | 
+| `-p`                            | Password                                                  | ✓        | 
+| `-l`                            | Any location Google Maps can understand                   | ✓        | 
+| `-st`                           | Steps to take                                             | ✓        | 
+| `-ar` `--auto_refresh` `seconds`| Enables auto page reload. Value in seconds                |          | 
+| `-i` `--ignore`                 | Comma-separated list of Pokémon to ignore                 |          | 
+| `-o` `--only`                   | Comma-separated list of Pokemon to search for exclusively |          | 
+| `-dp` `--display-pokestop`      | Display pokestop                                          |          | 
+| `-dg` `--display-gym`           | Display gym                                               |          | 
+| `-H` `--host`                   | Set web server listening host                             |          | 
+| `-P` `--port`                   | Set web server listening port                             |          |
+|`-L` `--locale`                  | Locale for Pokemon names: default en, check locale folder for more options |          |
+
+_Note:
+5 steps is approximately a 1.2km radius. More than 10 is redundant (you usually can't walk that far before despawn anyway)_
+
+
+
+## Common Errors
+> _`Exception, e <- Invalid syntax.`_
+
+* You are using python 3, download python 2.7 instead.
+
+
+> _`pip or python is not recognized as an internal or external command`_
+
+* Replace pip with C:\Python27\Scripts\pip
+* Replace python with C:\Python27\python
+
+## FAQ
+> _Can I sign in with Google?_
+
+* Yes you can! Pass the flag `-a google` to use Google authentication
+
+> _I'm on Windows, why does nothing work?_
+
+* See if anything in https://www.reddit.com/r/pokemongodev/comments/4t80df/wip_pokemon_go_map_visualization_google_maps_view/d5feu2f helps
