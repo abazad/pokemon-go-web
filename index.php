@@ -6,11 +6,19 @@ $domain = (isset($_SERVER) && is_array($_SERVER) && isset($_SERVER['SERVER_NAME'
 
 $address = isset($_POST['address']) ? $_POST['address'] : '';
 $address = isset($_GET['address']) ? urldecode($_GET['address']) : $address;
+$address = !empty($_SESSION['address']) && empty($address) ? $_SESSION['address'] : $address;
+
 $addressEncode = urlencode($address);
 
 set_time_limit(0);
 
 if (isset($_POST['get']) || isset($_GET['get'])) {
+
+    if(isset($_POST['address'])){
+        $_SESSION['address'] = $_POST['address'];
+    }elseif(isset($_GET['address'])){
+        $_SESSION['address'] = $_GET['address'];
+    }
 
     $latLngResults = getData('https://maps.googleapis.com/maps/api/geocode/json?address=' . $addressEncode);
     $latLngResults = json_decode($latLngResults, true);
@@ -18,24 +26,25 @@ if (isset($_POST['get']) || isset($_GET['get'])) {
 
         $lat = '';
         $lng = '';
-        if(isset($latLngResults['results']['geometry']['location'])){
+        if (isset($latLngResults['results']['geometry']['location'])) {
             $lat = $latLngResults['results']['geometry']['location']['lat'];
             $lng = $latLngResults['results']['geometry']['location']['lng'];
-        }elseif($latLngResults['results'][0]['geometry']['location']){
+        } elseif ($latLngResults['results'][0]['geometry']['location']) {
             $lat = $latLngResults['results'][0]['geometry']['location']['lat'];
             $lng = $latLngResults['results'][0]['geometry']['location']['lng'];
         }
 
-        if(!empty($lat) && !empty($lng)){
+        if (!empty($lat) && !empty($lng)) {
             $ok = getData($protocol . $domain . ':9999/next_loc?lat=' . $lat . '&lon=' . $lng);
-
-            if ($ok == 'ok') {
-                sleep(10);
-            }
         }
     }
 
     header('Location: ?address=' . $addressEncode);
+    exit;
+}
+
+if (isset($_GET['data'])) {
+    echo getData($protocol . $domain . ':9999/data');
     exit;
 }
 
@@ -62,31 +71,116 @@ function debug($data)
         var map;
         var infowindow;
         var myLocation = <?php echo !empty($address) ? "'" . $address . "'" : "''";?>;
+        var markersArray = [];
+
+        var boolAddressMarker = false;
+
         function initialize() {
-            if (myLocation) {
+
+            if(myLocation){
                 setAddressMarker(myLocation);
+                boolAddressMarker = true;
             }
+
             var pos = new google.maps.LatLng(51.508742, -0.120850);
             var mapProp = {
                 center: pos,
                 zoom: 16,
-                mapTypeId: google.maps.MapTypeId.ROADMAP
+                mapTypeId: google.maps.MapTypeId.ROADMAP,
+                zoomControl: true,
+                mapTypeControl: true,
+                scaleControl: true,
+                streetViewControl: true,
+                rotateControl: true,
+                fullscreenControl: true,
+                styles: [{
+                    "featureType": "landscape",
+                    "stylers": [{"hue": "#FFBB00"}, {"saturation": 43.400000000000006}, {"lightness": 37.599999999999994}, {"gamma": 1}]
+                }, {
+                    "featureType": "road.highway",
+                    "stylers": [{"hue": "#FFC200"}, {"saturation": -61.8}, {"lightness": 45.599999999999994}, {"gamma": 1}]
+                }, {
+                    "featureType": "road.arterial",
+                    "stylers": [{"hue": "#FF0300"}, {"saturation": -100}, {"lightness": 51.19999999999999}, {"gamma": 1}]
+                }, {
+                    "featureType": "road.local",
+                    "stylers": [{"hue": "#FF0300"}, {"saturation": -100}, {"lightness": 52}, {"gamma": 1}]
+                }, {
+                    "featureType": "water",
+                    "stylers": [{"hue": "#0078FF"}, {"saturation": -13.200000000000003}, {"lightness": 2.4000000000000057}, {"gamma": 1}]
+                }, {
+                    "featureType": "poi",
+                    "stylers": [{"hue": "#00FF6A"}, {"saturation": -1.0989010989011234}, {"lightness": 11.200000000000017}, {"gamma": 1}]
+                }]
             };
             map = new google.maps.Map(document.getElementById("googleMap"), mapProp);
+
             infowindow = new google.maps.InfoWindow({
                 content: ''
             });
-            if (!myLocation) {
-                placeMarker(pos, 'You are here!');
-                currentLocation();
+
+            getPokemons();
+            window.setInterval(function () {
+                map.clearOverlays();
+                getPokemons();
+            }, 10000);
+        }
+
+        google.maps.event.addDomListener(window, 'load', initialize);
+
+        google.maps.Map.prototype.clearOverlays = function() {
+            for (var i = 0; i < markersArray.length; i++ ) {
+                markersArray[i].setMap(null);
+            }
+            markersArray.length = 0;
+        }
+
+        function getPokemons() {
+            var infowindow = new google.maps.InfoWindow({
+                content: ""
+            });
+
+            var result = httpGet('<?php echo $protocol . $domain . '/?data=true'; ?>');
+
+            if(result.search('failed to open stream') > -1){
+                document.getElementById('googleMap').remove();
+                document.getElementById('error').innerHTML = 'Woops! Seems like you don\'t have the python script running!';
+            }else{
+                var pokemons = JSON.parse(result);
+
+                if (pokemons) {
+
+                    for (var i = 0; i < pokemons.length; i++) {
+                        var pokemon = pokemons[i];
+
+                        if(pokemon.key == 'start-position' && pokemon.type == 'custom' && boolAddressMarker == false){
+                            var pos = new google.maps.LatLng(pokemon.lat, pokemon.lng);
+                            placeMarker(pos, 'You are here!');
+                        }
+
+                        if (pokemon.type != 'pokemon') {
+                            continue;
+                        }
+
+                        var cleanNumber = pokemon.icon.replace('static/icons/', '');
+                        cleanNumber = cleanNumber.replace('.png', '');
+
+                        var latLng = new google.maps.LatLng(pokemon.lat, pokemon.lng);
+                        var marker = new google.maps.Marker({
+                            position: latLng,
+                            map: map,
+                            title: pokemon.name,
+                            icon: 'icons/' + cleanNumber + '.png'
+                        });
+
+                        markersArray.push(marker);
+
+                        bindInfoWindow(marker, map, infowindow, pokemon.infobox);
+                    }
+                }
             }
 
-            google.maps.event.addListener(marker, 'dragend', function(event)
-            {
-                getAddressLatLng(event.latLng.lat(), event.latLng.lng());
-            });
         }
-        google.maps.event.addDomListener(window, 'load', initialize);
 
         function currentLocation() {
             if (navigator.geolocation) {
@@ -115,6 +209,11 @@ function debug($data)
                 infowindow.setContent(title);
                 infowindow.open(map, oldMarker);
             });
+
+            google.maps.event.addListener(oldMarker, 'dragend', function (event) {
+                getAddressLatLng(event.latLng.lat(), event.latLng.lng());
+            });
+
             map.setCenter(location);
         }
 
@@ -162,6 +261,52 @@ function debug($data)
             xmlhttp.send();
         }
 
+        function httpGet(theUrl) {
+            var xmlHttp = new XMLHttpRequest();
+            xmlHttp.open("GET", theUrl, false);
+            xmlHttp.send(null);
+            return xmlHttp.responseText;
+        }
+
+        function arrayContains(needle, arrhaystack)
+        {
+            return (arrhaystack.indexOf(needle) > -1);
+        }
+
+        var setLabelTime = function(){
+
+            var elements = document.getElementsByClassName('label-countdown');
+
+            for (var i = 0; i < elements.length; i++) {
+                var element = elements[i];
+
+                var disappearsAt = new Date(parseInt(element.getAttribute("disappears-at"))*1000);
+                var now = new Date();
+
+                var difference = Math.abs(disappearsAt - now);
+                var hours = Math.floor(difference / 36e5);
+                var minutes = Math.floor((difference - (hours * 36e5)) / 6e4);
+                var seconds = Math.floor((difference - (hours * 36e5) - (minutes * 6e4)) / 1e3);
+
+                if(disappearsAt < now){
+                    timestring = "(expired)";
+                }
+                else {
+                    timestring = "(";
+                    if(hours > 0)
+                        timestring = hours + "h";
+
+                    timestring += ("0" + minutes).slice(-2) + "m";
+                    timestring += ("0" + seconds).slice(-2) + "s";
+                    timestring += ")";
+                }
+
+                element.innerHTML = timestring;
+            }
+        };
+
+        window.setInterval(setLabelTime, 1000);
+
     </script>
 
 </head>
@@ -175,19 +320,8 @@ function debug($data)
                                                                   onclick="currentLocation(); return false;">
 </form>
 
-<div id="googleMap" style="width:500px;height:380px;margin-bottom: 20px;"></div>
-
-<?php if (!empty($address)) { ?>
-    <iframe src="<?php echo $protocol . $domain . ':9999'; ?>" style="border: none; width: 100%; height: 600px;">
-        Your browser doesn't support iframes
-    </iframe>
-<?php } else { ?>
-
-<?php } ?>
-
-</br>
-
-
+<div id="googleMap" style="width:100%;height:600px;margin-bottom: 20px;"></div>
+<div id="error"></div>
 </body>
 
 </html>
