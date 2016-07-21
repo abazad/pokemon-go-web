@@ -18,15 +18,15 @@ if (isset($_POST['get']) || isset($_GET['get'])) {
 
         $lat = '';
         $lng = '';
-        if(isset($latLngResults['results']['geometry']['location'])){
+        if (isset($latLngResults['results']['geometry']['location'])) {
             $lat = $latLngResults['results']['geometry']['location']['lat'];
             $lng = $latLngResults['results']['geometry']['location']['lng'];
-        }elseif($latLngResults['results'][0]['geometry']['location']){
+        } elseif ($latLngResults['results'][0]['geometry']['location']) {
             $lat = $latLngResults['results'][0]['geometry']['location']['lat'];
             $lng = $latLngResults['results'][0]['geometry']['location']['lng'];
         }
 
-        if(!empty($lat) && !empty($lng)){
+        if (!empty($lat) && !empty($lng)) {
             $ok = getData($protocol . $domain . ':9999/next_loc?lat=' . $lat . '&lon=' . $lng);
 
             if ($ok == 'ok') {
@@ -36,6 +36,11 @@ if (isset($_POST['get']) || isset($_GET['get'])) {
     }
 
     header('Location: ?address=' . $addressEncode);
+    exit;
+}
+
+if (isset($_GET['data'])) {
+    echo getData($protocol . $domain . ':9999/data');
     exit;
 }
 
@@ -62,6 +67,10 @@ function debug($data)
         var map;
         var infowindow;
         var myLocation = <?php echo !empty($address) ? "'" . $address . "'" : "''";?>;
+        var markersArray = [];
+
+        var centerMarkerSet = false;
+
         function initialize() {
             if (myLocation) {
                 setAddressMarker(myLocation);
@@ -70,9 +79,35 @@ function debug($data)
             var mapProp = {
                 center: pos,
                 zoom: 16,
-                mapTypeId: google.maps.MapTypeId.ROADMAP
+                mapTypeId: google.maps.MapTypeId.ROADMAP,
+                zoomControl: true,
+                mapTypeControl: true,
+                scaleControl: true,
+                streetViewControl: true,
+                rotateControl: true,
+                fullscreenControl: true,
+                styles: [{
+                    "featureType": "landscape",
+                    "stylers": [{"hue": "#FFBB00"}, {"saturation": 43.400000000000006}, {"lightness": 37.599999999999994}, {"gamma": 1}]
+                }, {
+                    "featureType": "road.highway",
+                    "stylers": [{"hue": "#FFC200"}, {"saturation": -61.8}, {"lightness": 45.599999999999994}, {"gamma": 1}]
+                }, {
+                    "featureType": "road.arterial",
+                    "stylers": [{"hue": "#FF0300"}, {"saturation": -100}, {"lightness": 51.19999999999999}, {"gamma": 1}]
+                }, {
+                    "featureType": "road.local",
+                    "stylers": [{"hue": "#FF0300"}, {"saturation": -100}, {"lightness": 52}, {"gamma": 1}]
+                }, {
+                    "featureType": "water",
+                    "stylers": [{"hue": "#0078FF"}, {"saturation": -13.200000000000003}, {"lightness": 2.4000000000000057}, {"gamma": 1}]
+                }, {
+                    "featureType": "poi",
+                    "stylers": [{"hue": "#00FF6A"}, {"saturation": -1.0989010989011234}, {"lightness": 11.200000000000017}, {"gamma": 1}]
+                }]
             };
             map = new google.maps.Map(document.getElementById("googleMap"), mapProp);
+
             infowindow = new google.maps.InfoWindow({
                 content: ''
             });
@@ -81,12 +116,62 @@ function debug($data)
                 currentLocation();
             }
 
-            google.maps.event.addListener(marker, 'dragend', function(event)
-            {
-                getAddressLatLng(event.latLng.lat(), event.latLng.lng());
-            });
+            getPokemons();
+            window.setInterval(function () {
+                map.clearOverlays();
+                getPokemons();
+            }, 10000);
         }
+
         google.maps.event.addDomListener(window, 'load', initialize);
+
+        google.maps.Map.prototype.clearOverlays = function() {
+            for (var i = 0; i < markersArray.length; i++ ) {
+                markersArray[i].setMap(null);
+            }
+            markersArray.length = 0;
+        }
+
+        function getPokemons() {
+            var infowindow = new google.maps.InfoWindow({
+                content: ""
+            });
+
+            var result = httpGet('<?php echo $protocol . $domain . '/?data=true'; ?>');
+            var pokemons = JSON.parse(result);
+
+            if (pokemons) {
+
+                for (var i = 0; i < pokemons.length; i++) {
+                    var pokemon = pokemons[i];
+
+                    if(pokemon.key == 'start-position' && pokemon.type == 'custom' && centerMarkerSet == false){
+                        var pos = new google.maps.LatLng(pokemon.lat, pokemon.lng);
+                        placeMarker(pos, 'You are here!');
+                        centerMarkerSet = true;
+                    }
+
+                    if (pokemon.type != 'pokemon') {
+                        continue;
+                    }
+
+                    var cleanNumber = pokemon.icon.replace('static/icons/', '');
+                    cleanNumber = cleanNumber.replace('.png', '');
+
+                    var latLng = new google.maps.LatLng(pokemon.lat, pokemon.lng);
+                    var marker = new google.maps.Marker({
+                        position: latLng,
+                        map: map,
+                        title: pokemon.name,
+                        icon: 'icons/' + cleanNumber + '.png'
+                    });
+
+                    markersArray.push(marker);
+
+                    bindInfoWindow(marker, map, infowindow, pokemon.infobox);
+                }
+            }
+        }
 
         function currentLocation() {
             if (navigator.geolocation) {
@@ -115,6 +200,11 @@ function debug($data)
                 infowindow.setContent(title);
                 infowindow.open(map, oldMarker);
             });
+
+            google.maps.event.addListener(oldMarker, 'dragend', function (event) {
+                getAddressLatLng(event.latLng.lat(), event.latLng.lng());
+            });
+
             map.setCenter(location);
         }
 
@@ -162,6 +252,52 @@ function debug($data)
             xmlhttp.send();
         }
 
+        function httpGet(theUrl) {
+            var xmlHttp = new XMLHttpRequest();
+            xmlHttp.open("GET", theUrl, false);
+            xmlHttp.send(null);
+            return xmlHttp.responseText;
+        }
+
+        function arrayContains(needle, arrhaystack)
+        {
+            return (arrhaystack.indexOf(needle) > -1);
+        }
+
+        var setLabelTime = function(){
+
+            var elements = document.getElementsByClassName('label-countdown');
+
+            for (var i = 0; i < elements.length; i++) {
+                var element = elements[i];
+
+                var disappearsAt = new Date(parseInt(element.getAttribute("disappears-at"))*1000);
+                var now = new Date();
+
+                var difference = Math.abs(disappearsAt - now);
+                var hours = Math.floor(difference / 36e5);
+                var minutes = Math.floor((difference - (hours * 36e5)) / 6e4);
+                var seconds = Math.floor((difference - (hours * 36e5) - (minutes * 6e4)) / 1e3);
+
+                if(disappearsAt < now){
+                    timestring = "(expired)";
+                }
+                else {
+                    timestring = "(";
+                    if(hours > 0)
+                        timestring = hours + "h";
+
+                    timestring += ("0" + minutes).slice(-2) + "m";
+                    timestring += ("0" + seconds).slice(-2) + "s";
+                    timestring += ")";
+                }
+
+                element.innerHTML = timestring;
+            }
+        };
+
+        window.setInterval(setLabelTime, 1000);
+
     </script>
 
 </head>
@@ -175,18 +311,7 @@ function debug($data)
                                                                   onclick="currentLocation(); return false;">
 </form>
 
-<div id="googleMap" style="width:500px;height:380px;margin-bottom: 20px;"></div>
-
-<?php if (!empty($address)) { ?>
-    <iframe src="<?php echo $protocol . $domain . ':9999'; ?>" style="border: none; width: 100%; height: 600px;">
-        Your browser doesn't support iframes
-    </iframe>
-<?php } else { ?>
-
-<?php } ?>
-
-</br>
-
+<div id="googleMap" style="width:100%;height:600px;margin-bottom: 20px;"></div>
 
 </body>
 
