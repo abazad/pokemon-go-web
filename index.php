@@ -80,8 +80,9 @@ function debug($data)
                 placeMarker(pos, 'You are here!');
                 currentLocation();
             }
-            google.maps.event.addListener(map, 'click', function (event) {
-                placeMarker(event.latLng, 'You are here!');
+
+            google.maps.event.addListener(marker, 'dragend', function(event)
+            {
                 getAddressLatLng(event.latLng.lat(), event.latLng.lng());
             });
         }
@@ -102,6 +103,7 @@ function debug($data)
             marker = new google.maps.Marker({
                 position: location,
                 map: map,
+                draggable: true,
                 animation: google.maps.Animation.DROP,
                 title: title
             });
