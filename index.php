@@ -6,11 +6,19 @@ $domain = (isset($_SERVER) && is_array($_SERVER) && isset($_SERVER['SERVER_NAME'
 
 $address = isset($_POST['address']) ? $_POST['address'] : '';
 $address = isset($_GET['address']) ? urldecode($_GET['address']) : $address;
+$address = !empty($_SESSION['address']) && empty($address) ? $_SESSION['address'] : $address;
+
 $addressEncode = urlencode($address);
 
 set_time_limit(0);
 
 if (isset($_POST['get']) || isset($_GET['get'])) {
+
+    if(isset($_POST['address'])){
+        $_SESSION['address'] = $_POST['address'];
+    }elseif(isset($_GET['address'])){
+        $_SESSION['address'] = $_GET['address'];
+    }
 
     $latLngResults = getData('https://maps.googleapis.com/maps/api/geocode/json?address=' . $addressEncode);
     $latLngResults = json_decode($latLngResults, true);
@@ -28,10 +36,6 @@ if (isset($_POST['get']) || isset($_GET['get'])) {
 
         if (!empty($lat) && !empty($lng)) {
             $ok = getData($protocol . $domain . ':9999/next_loc?lat=' . $lat . '&lon=' . $lng);
-
-            if ($ok == 'ok') {
-                sleep(10);
-            }
         }
     }
 
@@ -69,12 +73,15 @@ function debug($data)
         var myLocation = <?php echo !empty($address) ? "'" . $address . "'" : "''";?>;
         var markersArray = [];
 
-        var centerMarkerSet = false;
+        var boolAddressMarker = false;
 
         function initialize() {
-            if (myLocation) {
+
+            if(myLocation){
                 setAddressMarker(myLocation);
+                boolAddressMarker = true;
             }
+
             var pos = new google.maps.LatLng(51.508742, -0.120850);
             var mapProp = {
                 center: pos,
@@ -111,10 +118,6 @@ function debug($data)
             infowindow = new google.maps.InfoWindow({
                 content: ''
             });
-            if (!myLocation) {
-                placeMarker(pos, 'You are here!');
-                currentLocation();
-            }
 
             getPokemons();
             window.setInterval(function () {
@@ -138,39 +141,45 @@ function debug($data)
             });
 
             var result = httpGet('<?php echo $protocol . $domain . '/?data=true'; ?>');
-            var pokemons = JSON.parse(result);
 
-            if (pokemons) {
+            if(result.search('failed to open stream') > -1){
+                document.getElementById('googleMap').remove();
+                document.getElementById('error').innerHTML = 'Woops! Seems like you don\'t have the python script running!';
+            }else{
+                var pokemons = JSON.parse(result);
 
-                for (var i = 0; i < pokemons.length; i++) {
-                    var pokemon = pokemons[i];
+                if (pokemons) {
 
-                    if(pokemon.key == 'start-position' && pokemon.type == 'custom' && centerMarkerSet == false){
-                        var pos = new google.maps.LatLng(pokemon.lat, pokemon.lng);
-                        placeMarker(pos, 'You are here!');
-                        centerMarkerSet = true;
+                    for (var i = 0; i < pokemons.length; i++) {
+                        var pokemon = pokemons[i];
+
+                        if(pokemon.key == 'start-position' && pokemon.type == 'custom' && boolAddressMarker == false){
+                            var pos = new google.maps.LatLng(pokemon.lat, pokemon.lng);
+                            placeMarker(pos, 'You are here!');
+                        }
+
+                        if (pokemon.type != 'pokemon') {
+                            continue;
+                        }
+
+                        var cleanNumber = pokemon.icon.replace('static/icons/', '');
+                        cleanNumber = cleanNumber.replace('.png', '');
+
+                        var latLng = new google.maps.LatLng(pokemon.lat, pokemon.lng);
+                        var marker = new google.maps.Marker({
+                            position: latLng,
+                            map: map,
+                            title: pokemon.name,
+                            icon: 'icons/' + cleanNumber + '.png'
+                        });
+
+                        markersArray.push(marker);
+
+                        bindInfoWindow(marker, map, infowindow, pokemon.infobox);
                     }
-
-                    if (pokemon.type != 'pokemon') {
-                        continue;
-                    }
-
-                    var cleanNumber = pokemon.icon.replace('static/icons/', '');
-                    cleanNumber = cleanNumber.replace('.png', '');
-
-                    var latLng = new google.maps.LatLng(pokemon.lat, pokemon.lng);
-                    var marker = new google.maps.Marker({
-                        position: latLng,
-                        map: map,
-                        title: pokemon.name,
-                        icon: 'icons/' + cleanNumber + '.png'
-                    });
-
-                    markersArray.push(marker);
-
-                    bindInfoWindow(marker, map, infowindow, pokemon.infobox);
                 }
             }
+
         }
 
         function currentLocation() {
@@ -312,7 +321,7 @@ function debug($data)
 </form>
 
 <div id="googleMap" style="width:100%;height:600px;margin-bottom: 20px;"></div>
-
+<div id="error"></div>
 </body>
 
 </html>
