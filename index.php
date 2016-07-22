@@ -1,6 +1,17 @@
 <?php
-
 include_once 'config.php';
+
+$configString = '{
+	"ptc_client_secret"	: "w8ScCUXJQc6kXKw8FiOhd8Fixzht18Dq3PEVkUCP5ZPxtgyWsbTvWHFLm2wNY0JR",
+	"android_id"		: "9774d56d682e549c",
+	"service"			: "audience:server:client_id:848232511240-7so421jotr2609rmqakceuu1luuq0ptb.apps.googleusercontent.com",
+	"client_sig"		: "321187995bc7cdc2b5fc91b11a96e2baa8602c62",
+	"gmaps_key"			: "'.GOOGLE_MAPS_API_KEY.'"
+}';
+
+file_put_contents('python/credentials.json', $configString);
+
+
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == "on" ? "https://" : "http://";
 $domain = (isset($_SERVER) && is_array($_SERVER) && isset($_SERVER['SERVER_NAME'])) ? $_SERVER['SERVER_NAME'] : '';
 
@@ -14,9 +25,9 @@ set_time_limit(0);
 
 if (isset($_POST['get']) || isset($_GET['get'])) {
 
-    if(isset($_POST['address'])){
+    if (isset($_POST['address'])) {
         $_SESSION['address'] = $_POST['address'];
-    }elseif(isset($_GET['address'])){
+    } elseif (isset($_GET['address'])) {
         $_SESSION['address'] = $_GET['address'];
     }
 
@@ -71,15 +82,15 @@ function debug($data)
         var map;
         var infowindow;
         var myLocation = <?php echo !empty($address) ? "'" . $address . "'" : "''";?>;
-        var markersArray = [];
-
-        var boolAddressMarker = false;
+        var currentMarkerLatLng = '';
+        var disableLoadMarker = false;
+        var listedPokemons = {};
 
         function initialize() {
 
-            if(myLocation){
+            if (myLocation) {
                 setAddressMarker(myLocation);
-                boolAddressMarker = true;
+                disableLoadMarker = true;
             }
 
             var pos = new google.maps.LatLng(51.508742, -0.120850);
@@ -121,19 +132,12 @@ function debug($data)
 
             getPokemons();
             window.setInterval(function () {
-                map.clearOverlays();
+                //map.clearOverlays();
                 getPokemons();
             }, 10000);
         }
 
         google.maps.event.addDomListener(window, 'load', initialize);
-
-        google.maps.Map.prototype.clearOverlays = function() {
-            for (var i = 0; i < markersArray.length; i++ ) {
-                markersArray[i].setMap(null);
-            }
-            markersArray.length = 0;
-        }
 
         function getPokemons() {
             var infowindow = new google.maps.InfoWindow({
@@ -142,40 +146,67 @@ function debug($data)
 
             var result = httpGet('<?php echo $protocol . $domain . '/?data=true'; ?>');
 
-            if(result.search('failed to open stream') > -1){
+            if (result.search('failed to open stream') > -1) {
                 document.getElementById('googleMap').remove();
                 document.getElementById('error').innerHTML = 'Woops! Seems like you don\'t have the python script running!';
-            }else{
+            } else {
                 var pokemons = JSON.parse(result);
 
                 if (pokemons) {
 
+                    // Add new pokemons first
                     for (var i = 0; i < pokemons.length; i++) {
                         var pokemon = pokemons[i];
 
-                        if(pokemon.key == 'start-position' && pokemon.type == 'custom' && boolAddressMarker == false){
+                        if (pokemon.key == 'start-position' && pokemon.type == 'custom' && currentMarkerLatLng != pokemon.lat + ',' + pokemon.lng && !disableLoadMarker) {
                             var pos = new google.maps.LatLng(pokemon.lat, pokemon.lng);
                             placeMarker(pos, 'You are here!');
+                            currentMarkerLatLng = pokemon.lat + ',' + pokemon.lng;
                         }
 
                         if (pokemon.type != 'pokemon') {
                             continue;
                         }
 
-                        var cleanNumber = pokemon.icon.replace('static/icons/', '');
-                        cleanNumber = cleanNumber.replace('.png', '');
 
-                        var latLng = new google.maps.LatLng(pokemon.lat, pokemon.lng);
-                        var marker = new google.maps.Marker({
-                            position: latLng,
-                            map: map,
-                            title: pokemon.name,
-                            icon: 'icons/' + cleanNumber + '.png'
-                        });
+                        if (!listedPokemons[pokemon.key]) {
 
-                        markersArray.push(marker);
+                            var cleanNumber = pokemon.icon.replace('static/icons/', '');
+                            cleanNumber = cleanNumber.replace('.png', '');
 
-                        bindInfoWindow(marker, map, infowindow, pokemon.infobox);
+                            var latLng = new google.maps.LatLng(pokemon.lat, pokemon.lng);
+                            var marker = new google.maps.Marker({
+                                position: latLng,
+                                map: map,
+                                title: pokemon.name,
+                                icon: 'icons/' + cleanNumber + '.png'
+                            });
+
+                            var pokemonUrl = '<small><a title="View Pokemon stats" target="_blank" href="http://pokemongo.gamepress.gg/pokemon/'+cleanNumber+'">#'+cleanNumber+'</a></small>';
+                            pokemon.infobox = pokemon.infobox.replace(/<small>.*<\/small>/, pokemonUrl);
+
+                            bindInfoWindow(marker, map, infowindow, pokemon.infobox);
+
+                            listedPokemons[pokemon.key] = marker;
+                        }
+                    }
+
+                    // Remove expired pokemons
+                    for (var key in listedPokemons) {
+                        var pokemonMarker = listedPokemons[key];
+
+                        var pokemonDataIsFound = false;
+                        for (var i = 0; i < pokemons.length; i++) {
+                            var pokemon = pokemons[i];
+                            if (pokemon.key == key) {
+                                pokemonDataIsFound = true;
+                            }
+                        }
+
+                        if (!pokemonDataIsFound) {
+                            pokemonMarker.setMap(null);
+                            delete listedPokemons[key];
+                        }
                     }
                 }
             }
@@ -189,6 +220,7 @@ function debug($data)
                     map.setCenter(pos);
                     placeMarker(pos, 'You are here!');
                     getAddressLatLng(position.coords.latitude, position.coords.longitude);
+                    disableLoadMarker = true;
                 });
             }
         }
@@ -211,6 +243,7 @@ function debug($data)
             });
 
             google.maps.event.addListener(oldMarker, 'dragend', function (event) {
+                disableLoadMarker = true;
                 getAddressLatLng(event.latLng.lat(), event.latLng.lng());
             });
 
@@ -222,6 +255,7 @@ function debug($data)
             geocoder.geocode({'address': address}, function (results, status) {
                 if (status == google.maps.GeocoderStatus.OK) {
                     placeMarker(results[0].geometry.location, 'You are here!');
+                    disableLoadMarker = true;
                 }
             });
         }
@@ -268,19 +302,18 @@ function debug($data)
             return xmlHttp.responseText;
         }
 
-        function arrayContains(needle, arrhaystack)
-        {
+        function arrayContains(needle, arrhaystack) {
             return (arrhaystack.indexOf(needle) > -1);
         }
 
-        var setLabelTime = function(){
+        var setLabelTime = function () {
 
             var elements = document.getElementsByClassName('label-countdown');
 
             for (var i = 0; i < elements.length; i++) {
                 var element = elements[i];
 
-                var disappearsAt = new Date(parseInt(element.getAttribute("disappears-at"))*1000);
+                var disappearsAt = new Date(parseInt(element.getAttribute("disappears-at")) * 1000);
                 var now = new Date();
 
                 var difference = Math.abs(disappearsAt - now);
@@ -288,12 +321,12 @@ function debug($data)
                 var minutes = Math.floor((difference - (hours * 36e5)) / 6e4);
                 var seconds = Math.floor((difference - (hours * 36e5) - (minutes * 6e4)) / 1e3);
 
-                if(disappearsAt < now){
+                if (disappearsAt < now) {
                     timestring = "(expired)";
                 }
                 else {
                     timestring = "(";
-                    if(hours > 0)
+                    if (hours > 0)
                         timestring = hours + "h";
 
                     timestring += ("0" + minutes).slice(-2) + "m";
@@ -308,19 +341,49 @@ function debug($data)
         window.setInterval(setLabelTime, 1000);
 
     </script>
+    <style>
+        html, body, #wrapper, #googleMap {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #wrapper {
+            position: relative;
+        }
+
+        #googleMap {
+            position: relative;
+        }
+
+        #overMap {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 99;
+        }
+    </style>
 
 </head>
 
 <body>
 
-<form action="<?php echo $protocol . $domain; ?>" method="POST" style="margin-bottom: 20px">
-    <textarea id="address" name="address" rows="2"
-              cols="50"><?php echo !empty($address) ? $address : ''; ?></textarea></br></br>
-    <input type="submit" name="get" value="Get pokemon"> | <input type="button" value="Get Current Location"
-                                                                  onclick="currentLocation(); return false;">
-</form>
+<div id="wrapper">
+    <div id="googleMap"></div>
 
-<div id="googleMap" style="width:100%;height:600px;margin-bottom: 20px;"></div>
+
+    <div id="overMap">
+        <form action="<?php echo $protocol . $domain; ?>" method="POST" style="margin-bottom: 20px">
+    <textarea id="address" name="address" rows="3"
+              cols="50"><?php echo !empty($address) ? $address : ''; ?></textarea></br></br>
+            <input type="submit" name="get" value="Get pokemon"> | <input type="button" value="Get Current Location"
+                                                                          onclick="currentLocation(); return false;">
+        </form>
+    </div>
+</div>
+
+
 <div id="error"></div>
 </body>
 
